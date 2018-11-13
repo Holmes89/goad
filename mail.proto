@@ -1,0 +1,41 @@
+syntax = "proto3";
+package mail;
+
+import "google/protobuf/timestamp.proto";
+
+message Mail {
+	string id = 1;
+	string to = 2;
+	string from = 3;
+	google.protobuf.Timestamp sent = 4;
+	bool read = 5;
+	string body = 6;
+	string subject = 7;
+}
+
+message MailID {
+    string id = 1;
+    string username = 2;
+}
+
+message GetMailRequest {
+	string username = 1;
+	string id = 2;
+	bool all = 3;
+}
+
+message GetMailResponse {
+	repeated Mail mail = 1;
+}
+
+message Empty {
+
+}
+
+service Mailer {
+	rpc GetMail (GetMailRequest) returns (GetMailResponse) {}
+	rpc SendMail (Mail)  returns (Mail) {}
+	rpc DeleteMail (MailID) returns (Empty) {}
+	rpc MarkRead (MailID) returns (Mail) {}
+    rpc MarkUnread (MailID) returns (Mail) {}
+}
