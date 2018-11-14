@@ -4,7 +4,7 @@ package mail;
 import "google/protobuf/timestamp.proto";
 
 message Mail {
-	string id = 1;
+	string uuid = 1;
 	string to = 2;
 	string from = 3;
 	google.protobuf.Timestamp sent = 4;
@@ -14,13 +14,13 @@ message Mail {
 }
 
 message MailID {
-    string id = 1;
+    string uuid = 1;
     string username = 2;
 }
 
 message GetMailRequest {
 	string username = 1;
-	string id = 2;
+	string uuid = 2;
 	bool all = 3;
 }
 

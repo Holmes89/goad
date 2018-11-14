@@ -21,16 +21,16 @@ func NewMailRepo(session *mgo.Session, database string) mail.MailRepo{
 	}
 }
 
-func (r *mailRepo) GetMail(username string, id string) (*mail.Mail, error){
+func (r *mailRepo) GetMail(id, username string) (*mail.Mail, error){
 	sess := r.session.Copy()
 	defer sess.Close()
 
 	c := sess.DB(r.database).C(collection_name)
-	querier := bson.M{"id": id, "to": username}
+	querier := bson.M{"uuid": id, "to": username}
 	m := &mail.Mail{}
 
-	if err := c.Find(querier).One(m); err != nil {
-		log.Error("Unable to fetch single message", err.Error())
+	if err := c.Find(querier).One(&m); err != nil {
+		log.Error("Unable to fetch single message: ", err.Error())
 		return nil, err
 	}
 
@@ -64,6 +64,7 @@ func (r *mailRepo) CreateMail(m *mail.Mail) error{
 	sess := r.session.Copy()
 	defer sess.Close()
 
+
 	c := sess.DB(r.database).C(collection_name)
 
 	if err := c.Insert(m); err != nil {
@@ -79,7 +80,7 @@ func (r *mailRepo) UpdateMail(m *mail.Mail) error{
 
 	c := sess.DB(r.database).C(collection_name)
 
-	querier := bson.M{"id": m.Id}
+	querier := bson.M{"uuid": m.Uuid}
 	change := bson.M{"$set": bson.M{"read": m.Read}}
 	if err := c.Update(querier, change); err != nil {
 		log.Error("Unable to update message", err.Error())
@@ -93,10 +94,10 @@ func (r *mailRepo) DeleteMail(id string, username string) error{
 	defer sess.Close()
 
 	c := sess.DB(r.database).C(collection_name)
-	querier := bson.M{"id": id, "to": username}
+	querier := bson.M{"uuid": id, "to": username}
 
 	if err := c.Remove(querier); err != nil {
-		log.Error("Unable to delete message", err.Error())
+		log.Error("Unable to delete message: ", err.Error())
 		return err
 	}
 	return nil

@@ -2,118 +2,113 @@ package mail
 
 import (
 	"context"
-	"errors"
-	log "github.com/sirupsen/logrus"
+	"google.golang.org/grpc"
+	"log"
 )
 
-type mailerServer struct {
-	repo MailRepo
+type mailService struct {
+	conn *grpc.ClientConn
 }
 
-func NewMailServer(repo MailRepo) MailerServer {
-	return &mailerServer{
-		repo: repo,
+type MailService interface{
+	Send(to, from, sub, message string) error
+	GetMessages(username string, all bool) ([]*Mail, error)
+	GetSingleMessage(username, id string) (*Mail, error)
+	UpdateMessageStatus(id string, unread bool) error
+	DeleteMessage(id, username string) error
+	Close()
+}
+
+func NewMailService(endpoint string) MailService{
+
+	conn, err := grpc.Dial(endpoint, grpc.WithInsecure())
+	if err != nil {
+		log.Panic("did not connect: %s", err)
+	}
+
+	return &mailService{
+		conn,
 	}
 }
 
-func (s *mailerServer) GetMail(ctx context.Context, req *GetMailRequest) (*GetMailResponse, error) {
+func (s *mailService) Close() {
+	s.conn.Close()
+}
 
-	resp := &GetMailResponse{}
+func (s *mailService) Send(to, from, sub, message string) error {
+	c := NewMailerClient(s.conn)
 
-	if req.Id == "" {
-		mail, err := s.repo.GetAllMail(req.Username, req.All)
-		if err != nil {
-			log.WithFields(log.Fields{
-				"username": req.Username,
-			}).Error("Unable to fetching emails")
-			return nil, err
+	m := &Mail{
+		To:      to,
+		Subject: sub,
+		From:    "placeholder",
+		Body:    message,
+	}
+
+	_, err := c.SendMail(context.Background(), m)
+	return err
+}
+
+func (s *mailService) GetMessages(username string, all bool) ([]*Mail, error) {
+	c := NewMailerClient(s.conn)
+
+	r, err := c.GetMail(context.Background(), &GetMailRequest{
+		Username: username,
+		All: all,
+	})
+
+	return r.Mail, err
+}
+
+
+func (s *mailService) GetSingleMessage(username, id string) (*Mail, error) {
+	c := NewMailerClient(s.conn)
+
+	r, err := c.GetMail(context.Background(), &GetMailRequest{
+		Username: username,
+		Uuid: id,
+	})
+
+	if r == nil || len(r.Mail) == 0 {
+		return nil, err
+	}
+
+	s.UpdateMessageStatus(id, false)
+	return r.Mail[0], err
+}
+
+func (s *mailService) UpdateMessageStatus(id string, unread bool) error {
+	c := NewMailerClient(s.conn)
+
+	//TODO fix this
+	m := &MailID{
+		Username: "test",
+		Uuid: id,
+	}
+
+	if unread {
+		if _, err := c.MarkUnread(context.Background(), m); err != nil {
+			return err
 		}
-		resp.Mail = mail
 	} else {
-		mail, err := s.fetchMail(req.Id, req.Username)
-		if err != nil {
-			return nil, err
+		if _, err := c.MarkRead(context.Background(), m); err != nil {
+			return err
 		}
-		resp.Mail = []*Mail{mail}
 	}
 
-	return resp, nil
-}
-
-func (s *mailerServer) SendMail(ctx context.Context, mail *Mail) (*Mail, error) {
-	if err := s.repo.CreateMail(mail); err != nil {
-		log.WithFields(log.Fields{
-			"to": mail.To,
-			"from": mail.From,
-		}).Error("Unable to creat email")
-		return nil, err
-	}
-	return mail, nil
-}
-
-func (s *mailerServer) DeleteMail(ctx context.Context, mail *MailID) (*Empty, error) {
-	if mail.Id == "" || mail.Username == "" {
-		err := errors.New("Id and Username required")
-		log.Error("Missing username or id")
-		return nil, err
-	}
-	if err := s.repo.DeleteMail(mail.Id, mail.Username); err != nil {
-		log.Error("Error deleting mail", err)
-		return nil, err
-	}
-	return &Empty{}, nil
+	return nil
 
 }
 
-func (s *mailerServer) MarkUnread(ctx context.Context, mail *MailID) (*Mail, error){
-	return s.updateMailReadStatus(mail, false)
-}
+func (s *mailService) DeleteMessage(id, username string) error {
+	c := NewMailerClient(s.conn)
 
-
-func (s *mailerServer) MarkRead(ctx context.Context, mail *MailID) (*Mail, error){
-	return s.updateMailReadStatus(mail, true)
-}
-
-func (s *mailerServer) updateMailReadStatus(mail *MailID, status bool) (*Mail, error) {
-	m, err := s.fetchMail(mail.Id, mail.Username)
-	if err != nil {
-		return nil, err
+	//TODO fix this
+	m := &MailID{
+		Username: "test",
+		Uuid: id,
 	}
 
-	m.Read = status
-	if err := s.repo.UpdateMail(m); err != nil {
-		log.WithFields(log.Fields{
-			"username": mail.Username,
-			"id": mail.Id,
-		}).Error("Unable to fetching emails")
-
-		return nil, err
-	}
-	return m, nil
-}
-
-func (s *mailerServer) fetchMail(id string, username string) (*Mail, error) {
-	if id == "" || username == "" {
-		err := errors.New("Id and Username required")
-		log.Error("Missing username or id")
-		return nil, err
-	}
-
-	m, err := s.repo.GetMail(id, username)
-	if err != nil {
-		log.WithFields(log.Fields{
-			"username": username,
-			"id": id,
-		}).Error("Unable to fetching emails")
-		return nil, err
-	}
-	if m == nil {
-		err := errors.New("Email doesn't exits")
-		log.WithFields(log.Fields{
-			"username": username,
-			"id": id,
-		}).Error("Invalid email")
-		return nil, err
-	}
-	return m, nil
+	_, err := c.DeleteMail(context.Background(), m)
+	return err
 }
