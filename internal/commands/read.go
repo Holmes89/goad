@@ -3,6 +3,7 @@ package commands
 import (
 	"fmt"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 	"smail/internal/mail"
 )
 
@@ -17,8 +18,8 @@ func NewReadCommand() *cobra.Command {
 			service := mail.NewMailService(":8080")
 			defer service.Close()
 
-			//TODO fetch username from config
-			m, err := service.GetSingleMessage("test", args[0])
+			username := viper.Get("username").(string)
+			m, err := service.GetSingleMessage(username, args[0])
 			if err != nil {
 				fmt.Println("Unable to read message")
 				return

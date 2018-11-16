@@ -3,6 +3,7 @@ package commands
 import (
 	"fmt"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 	"smail/internal/mail"
 )
 
@@ -17,8 +18,8 @@ func NewDeleteCommand() *cobra.Command {
 			service := mail.NewMailService(":8080")
 			defer service.Close()
 
-			//TODO fetch username from config
-			err := service.DeleteMessage(args[0], "test")
+			username := viper.Get("username").(string)
+			err := service.DeleteMessage(args[0], username)
 			if err != nil {
 				fmt.Println("Unable to delete message")
 			}

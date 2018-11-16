@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 	"os"
 	"smail/internal/mail"
 )
@@ -30,7 +31,9 @@ func NewSendCommand() *cobra.Command {
 				sub = args[1]
 			}
 
-			err := service.Send(to, "not implemented", sub, text)
+
+			username := viper.Get("username").(string)
+			err := service.Send(to, username, sub, text)
 			if err != nil {
 				fmt.Println("Unable to send message")
 			} else {

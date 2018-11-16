@@ -3,6 +3,7 @@ package commands
 import (
 	"fmt"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 	"smail/internal/mail"
 )
 
@@ -19,11 +20,12 @@ func NewMarkCommand() *cobra.Command {
 
 			id := args[1]
 
+			username := viper.Get("username").(string)
 			switch args[0] {
 			case "read":
-				service.UpdateMessageStatus(id, false)
+				service.UpdateMessageStatus(id, username, false)
 			case "unread":
-				service.UpdateMessageStatus(id, true)
+				service.UpdateMessageStatus(id, username, true)
 			default:
 				fmt.Println("Invalid param")
 			}

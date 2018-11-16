@@ -14,7 +14,7 @@ type MailService interface{
 	Send(to, from, sub, message string) error
 	GetMessages(username string, all bool) ([]*Mail, error)
 	GetSingleMessage(username, id string) (*Mail, error)
-	UpdateMessageStatus(id string, unread bool) error
+	UpdateMessageStatus(id string, username string, unread bool) error
 	DeleteMessage(id, username string) error
 	Close()
 }
@@ -41,7 +41,7 @@ func (s *mailService) Send(to, from, sub, message string) error {
 	m := &Mail{
 		To:      to,
 		Subject: sub,
-		From:    "placeholder",
+		From:    from,
 		Body:    message,
 	}
 
@@ -73,16 +73,15 @@ func (s *mailService) GetSingleMessage(username, id string) (*Mail, error) {
 		return nil, err
 	}
 
-	s.UpdateMessageStatus(id, false)
+	s.UpdateMessageStatus(id, username, false)
 	return r.Mail[0], err
 }
 
-func (s *mailService) UpdateMessageStatus(id string, unread bool) error {
+func (s *mailService) UpdateMessageStatus(id string, username string, unread bool) error {
 	c := NewMailerClient(s.conn)
 
-	//TODO fix this
 	m := &MailID{
-		Username: "test",
+		Username: username,
 		Uuid: id,
 	}
 
@@ -103,9 +102,8 @@ func (s *mailService) UpdateMessageStatus(id string, unread bool) error {
 func (s *mailService) DeleteMessage(id, username string) error {
 	c := NewMailerClient(s.conn)
 
-	//TODO fix this
 	m := &MailID{
-		Username: "test",
+		Username: username,
 		Uuid: id,
 	}
 

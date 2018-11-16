@@ -3,6 +3,7 @@ package commands
 import (
 	"fmt"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 	"smail/internal/mail"
 )
 
@@ -18,8 +19,8 @@ func NewInboxCommand() *cobra.Command {
 
 			all := (len(args) > 0) && (args[0] == "all")
 
-			//TODO fetch username from config
-			ms, err := service.GetMessages("test", all)
+			username := viper.Get("username").(string)
+			ms, err := service.GetMessages(username, all)
 			if err != nil {
 				fmt.Println("Unable to send message")
 			} else {
