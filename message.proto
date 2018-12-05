@@ -1,0 +1,17 @@
+syntax = "proto3";
+package message;
+
+import "google/protobuf/timestamp.proto";
+
+message Message {
+	string uuid = 1;
+	string room = 2;
+	string from = 3;
+	google.protobuf.Timestamp sent = 4;
+	string body = 5;
+}
+
+
+service Messenger {
+	rpc SendMessage (stream Message) returns (stream Message) {}
+}
