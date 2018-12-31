@@ -2,11 +2,12 @@ package main
 
 import (
 	log "github.com/sirupsen/logrus"
+	"google.golang.org/grpc"
 	"net"
 	"os"
 	"smail/internal/database"
 	"smail/internal/mail"
-	"google.golang.org/grpc"
+	"smail/internal/message"
 )
 
 const (
@@ -30,10 +31,16 @@ func main() {
 		log.Panic("Error connecting to database ", err.Error())
 	}
 
-	log.Info("Connected to database")
+	log.Info("connected to database")
 
 	mailRepo := database.NewMailRepo(mongoSession, defaultDb)
 	mailServer := mail.NewMailServer(mailRepo)
+
+	hub := message.NewHub()
+	hub.Run()
+	defer hub.Close()
+
+	chatServer := message.NewGRPCServer(hub)
 
 	lis, err := net.Listen("tcp", port)
 	if err != nil {
@@ -43,7 +50,9 @@ func main() {
 	grpcServer := grpc.NewServer()
 
 	mail.RegisterMailerServer(grpcServer, mailServer)
+	message.RegisterMessengerServer(grpcServer, chatServer)
 
+	log.WithField("port", port).Info("listening")
 	if err := grpcServer.Serve(lis); err != nil {
 		log.Panic("failed to serve: ", err.Error())
 	}
