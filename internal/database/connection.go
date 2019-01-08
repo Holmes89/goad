@@ -9,7 +9,7 @@ import (
 
 func MongoConnect(url string) *mgo.Session {
 
-	log.Info("Connecting to database")
+	log.Info("connecting to database")
 	dialInfo, err := mgo.ParseURL(url)
 	if err != nil {
 		log.Fatal("Unable to get info for database: ", err)
@@ -28,4 +28,14 @@ func MongoConnect(url string) *mgo.Session {
 		log.Fatal("Unable to connect to database ", err)
 	}
 	return session
+}
+
+func MongoSimpleConnect(url string) *mgo.Session {
+
+	log.Info("connecting to database")
+	c, err := mgo.Dial(url)
+	if err != nil {
+		log.WithField("error", err.Error()).Fatal("Unable to connect to mongo database")
+	}
+	return c
 }

@@ -3,6 +3,7 @@ module smail
 require (
 	github.com/gdamore/tcell v1.1.1
 	github.com/golang/protobuf v1.2.0
+	github.com/gorilla/websocket v1.4.0
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
 	github.com/mitchellh/go-homedir v1.0.0
 	github.com/rivo/tview v0.0.0-20181226202439-36893a669792

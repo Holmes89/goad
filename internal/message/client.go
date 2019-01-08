@@ -1,11 +1,31 @@
 package message
 
 import (
+	"fmt"
+	"github.com/gorilla/websocket"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"io"
+	"net/http"
 	"sync"
+	"time"
+)
+
+var upgrader = websocket.Upgrader{
+	ReadBufferSize:  1024,
+	WriteBufferSize: 1024,
+}
+
+const (
+	// Time allowed to write a message to the peer.
+	writeWait = 10 * time.Second
+
+	// Time allowed to read the next pong message from the peer.
+	pongWait = 60 * time.Second
+
+	// Send pings to peer with this period. Must be less than pongWait.
+	pingPeriod = (pongWait * 9) / 10
 )
 
 type Client interface{
@@ -20,12 +40,37 @@ type grpcClient struct {
 	wg sync.WaitGroup
 }
 
+type wsClient struct {
+	hub Hub
+	conn *websocket.Conn
+	send chan *Message
+}
+
+
 func NewGRPCClient(hub Hub, messenger Messenger_SendMessageServer) Client {
 	c := &grpcClient{
 		hub: hub,
 		messenger: messenger,
 	}
-	logrus.Info("client created")
+	logrus.Info("grpc client created")
+	return c
+}
+
+func NewWebSocketClient(hub Hub, w http.ResponseWriter, r *http.Request) Client {
+
+	conn, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		logrus.WithField("err", err).Error("unable to register ws client")
+		return nil
+	}
+	s := make(chan *Message)
+	c := &wsClient{
+		hub: hub,
+		conn: conn,
+		send: s,
+	}
+
+	logrus.Info("ws client created")
 	return c
 }
 
@@ -60,6 +105,85 @@ func (c *grpcClient) Run() {
 	}
 }
 
+func (c *wsClient) Send(message *Message) {
+	c.send <- message
+}
+
+func (c *wsClient) Close() {
+	close(c.send)
+	c.hub.Unregister(c)
+}
+
+func (c *wsClient) Run() {
+	go c.readPump()
+	go c.writePump()
+}
+
+func (c *wsClient) readPump(){
+	defer func() {
+		c.hub.Unregister(c)
+		c.conn.Close()
+	}()
+	c.conn.SetReadLimit(10)
+	c.conn.SetReadDeadline(time.Now().Add(pongWait))
+	c.conn.SetPongHandler(func(string) error { c.conn.SetReadDeadline(time.Now().Add(pongWait)); return nil })
+	for {
+		_, resp, err := c.conn.ReadMessage()
+		if err != nil {
+			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+				logrus.WithField("error", err.Error()).Error("websocket error")
+			}
+			break
+		}
+
+		//TODO Add uuid, timestamp
+		message := &Message{
+			From: "Web User",
+			Body: string(resp),
+		}
+		c.hub.Broadcast(message)
+	}
+}
+
+func (c *wsClient) writePump(){
+
+	ticker := time.NewTicker(pingPeriod)
+	defer func() {
+		ticker.Stop()
+		c.conn.Close()
+	}()
+	for {
+		select {
+		case message, ok := <-c.send:
+			logrus.Info("sending message from ws")
+			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
+			if !ok {
+				// The hub closed the channel.
+				c.conn.WriteMessage(websocket.CloseMessage, []byte{})
+				return
+			}
+
+			w, err := c.conn.NextWriter(websocket.TextMessage)
+			if err != nil {
+				return
+			}
+			msg := fmt.Sprintf("%s: %s", message.From, message.Body)
+			w.Write([]byte(msg))
+			w.Write([]byte{'\n'})
+
+			if err := w.Close(); err != nil {
+				return
+			}
+		case <-ticker.C:
+			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
+			if err := c.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
+				return
+			}
+		}
+	}
+}
+
+
 func handleErrorMessage(err error) {
 	status, _ := status.FromError(err)
 	if codes.Canceled == status.Code() {
@@ -68,3 +192,4 @@ func handleErrorMessage(err error) {
 		logrus.WithField("error", status.Message()).Error("received error from client")
 	}
 }
+
