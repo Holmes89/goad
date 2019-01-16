@@ -7,6 +7,7 @@ window.onload = function () {
     var conn;
     var msg = document.getElementById("msg");
     var log = document.getElementById("log");
+    var user = ""
 
     function appendLog(item) {
         var doScroll = log.scrollTop > log.scrollHeight - log.clientHeight - 1;
@@ -23,12 +24,23 @@ window.onload = function () {
         if (!msg.value) {
             return false;
         }
-        conn.send(msg.value);
+
+        var message = {
+            "from": user,
+            "body": msg.value
+        }
+        conn.send(JSON.stringify(message));
         msg.value = "";
         return false;
     };
 
     if (window["WebSocket"]) {
+        var user = prompt("Please enter your name", "Harry Potter");
+
+        if (user == null || user == "") {
+            user = "Unknown";
+        }
+
         conn = new WebSocket("ws://" + document.location.host + "/ws");
         conn.onclose = function (evt) {
             var item = document.createElement("div");

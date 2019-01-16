@@ -1,6 +1,7 @@
 package message
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/gorilla/websocket"
 	"github.com/sirupsen/logrus"
@@ -124,12 +125,12 @@ func (c *wsClient) readPump(){
 		c.hub.Unregister(c)
 		c.conn.Close()
 	}()
-	c.conn.SetReadLimit(10)
 	c.conn.SetReadDeadline(time.Now().Add(pongWait))
 	c.conn.SetPongHandler(func(string) error { c.conn.SetReadDeadline(time.Now().Add(pongWait)); return nil })
 	for {
 		_, resp, err := c.conn.ReadMessage()
 		if err != nil {
+			logrus.WithField("error", err.Error()).Error("websocket error")
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
 				logrus.WithField("error", err.Error()).Error("websocket error")
 			}
@@ -137,10 +138,17 @@ func (c *wsClient) readPump(){
 		}
 
 		//TODO Add uuid, timestamp
-		message := &Message{
-			From: "Web User",
-			Body: string(resp),
+
+		//message := &Message{
+		//	From: "Web User",
+		//	Body: string(resp),
+		//}
+
+		message := &Message{}
+		if err := json.Unmarshal(resp, message); err != nil {
+			logrus.Error("unable to parse")
 		}
+
 		c.hub.Broadcast(message)
 	}
 }

@@ -80,7 +80,6 @@ func (h *hub) Run() {
 				if _, ok := h.clients[client]; ok {
 					delete(h.clients, client)
 					logrus.WithField("clients", len(h.clients)).Info("client removed")
-					client.Close()
 				}
 			case message := <-h.broadcast:
 				logrus.Info("message received")
