@@ -1,0 +1,65 @@
+{
+    "variables": {
+	"aws_access_key": "{{env `AWS_ACCESS_KEY_ID`}}",
+        "aws_secret_key": "{{env `AWS_SECRET_ACCESS_KEY`}}",
+	"region": "us-east-2",
+	"db_string": "{{env `GOAD_DB`}}"
+    },
+    "builders": [
+	{
+	    "access_key": "{{user `aws_access_key`}}",
+            "ami_name": "goad-{{timestamp}}",
+            "instance_type": "t2.nano",
+            "region": "us-east-2",
+            "secret_key": "{{user `aws_secret_key`}}",
+            "source_ami_filter": {
+              "filters": {
+              "virtualization-type": "hvm",
+              "name": "ubuntu/images/*ubuntu-xenial-16.04-amd64-server-*",
+              "root-device-type": "ebs"
+              },
+              "owners": ["099720109477"],
+              "most_recent": true
+            },
+            "ssh_username": "ubuntu",
+            "type": "amazon-ebs"
+	}
+    ],
+    "provisioners": [
+        {
+            "type": "file",
+            "source": "goad",
+            "destination": "/home/ubuntu/"
+        },
+	{
+            "type": "file",
+            "source": "home.html",
+            "destination": "/home/ubuntu/"
+	},
+	{
+            "type": "file",
+            "source": "goad.service.tmp",
+            "destination": "/home/ubuntu/"
+        },
+        {
+            "type": "shell",
+            "inline":[
+		"envsubst < /home/ubuntu/goad.service.tmp > /home/ubuntu/goad.service",
+		"sudo chmod 777 goad.service",
+		"sudo chown root:root goad.service",
+		"sudo cp /home/ubuntu/goad.service  /lib/systemd/system/goad.service"
+            ],
+	    
+	    "environment_vars": [
+		"GOAD_DB_URL={{user `db_string`}}"
+	    ]
+        },
+	{
+            "type": "shell",
+	    "expect_disconnect": true,
+            "inline":[
+		"sudo reboot"
+            ]
+        }
+    ]
+}

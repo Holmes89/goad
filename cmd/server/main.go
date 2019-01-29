@@ -18,34 +18,19 @@ const (
 	defaultDb    = "smail"
 	defaultGRPCPort     = ":8080"
 	defaultWSPort     = ":8081"
+	enableMail 	= false
 )
+
+var baseHTMLDir	= envString("BASE_HTML_DIR", "")
 
 func main() {
 	var (
-		mongoURL        = envString("SMAIL_DB_URL", defaultMongoURL)
+		mongoURL        = envString("GOAD_DB_URL", defaultMongoURL)
 		grpcPort            = envString("GRPC_PORT", defaultGRPCPort)
 		wsPort            = envString("WS_PORT", defaultWSPort)
 	)
 
-	var mongoSession *mgo.Session
-	if mongoURL == defaultMongoURL {
-		mongoSession = database.MongoSimpleConnect(mongoURL)
-	} else{
-		mongoSession = database.MongoConnect(mongoURL)
-	}
 
-	defer mongoSession.Close()
-
-	err := mongoSession.Ping()
-
-	if err != nil {
-		log.Panic("Error connecting to database ", err.Error())
-	}
-
-	log.Info("connected to database")
-
-	mailRepo := database.NewMailRepo(mongoSession, defaultDb)
-	mailServer := mail.NewMailServer(mailRepo)
 
 	hub := message.NewHub()
 	hub.Run()
@@ -63,7 +48,30 @@ func main() {
 
 	grpcServer := grpc.NewServer()
 
-	mail.RegisterMailerServer(grpcServer, mailServer)
+	if enableMail {
+		var mongoSession *mgo.Session
+		if mongoURL == defaultMongoURL {
+			mongoSession, _ = database.MongoSimpleConnect(mongoURL)
+		} else{
+			mongoSession, _ = database.MongoConnect(mongoURL)
+		}
+
+		defer mongoSession.Close()
+
+		err := mongoSession.Ping()
+
+		if err != nil {
+			log.Warn("Error connecting to database ", err.Error())
+		}
+
+		log.Info("connected to database")
+
+		mailRepo := database.NewMailRepo(mongoSession, defaultDb)
+		mailServer := mail.NewMailServer(mailRepo)
+		mail.RegisterMailerServer(grpcServer, mailServer)
+
+	}
+
 	message.RegisterMessengerServer(grpcServer, chatServer)
 
 	go func() {
@@ -103,7 +111,7 @@ func serveHome(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	http.ServeFile(w, r, "home.html")
+	http.ServeFile(w, r, baseHTMLDir+"home.html")
 }
 
 func envString(env, fallback string) string {

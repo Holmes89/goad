@@ -1,0 +1,13 @@
+[Unit]
+Description=goad
+
+[Service]
+Type=simple
+Restart=always
+RestartSec=5s
+Environment="GOAD_DB_URL=$GOAD_DB_URL"
+Environment="BASE_HTML_DIR=/home/ubuntu/"
+ExecStart=/home/ubuntu/goad
+
+[Install]
+WantedBy=multi-user.target

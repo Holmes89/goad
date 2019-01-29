@@ -7,12 +7,12 @@ import (
 	"net"
 )
 
-func MongoConnect(url string) *mgo.Session {
+func MongoConnect(url string) (*mgo.Session, error) {
 
 	log.Info("connecting to database")
 	dialInfo, err := mgo.ParseURL(url)
 	if err != nil {
-		log.Fatal("Unable to get info for database: ", err)
+		log.Fatal("unable to get info for database: ", err)
 	}
 
 	//Below part is similar to above.
@@ -25,17 +25,19 @@ func MongoConnect(url string) *mgo.Session {
 	session, err := mgo.DialWithInfo(dialInfo)
 
 	if err != nil {
-		log.Fatal("Unable to connect to database ", err)
+		log.Warn("unable to connect to database ", err)
+		return nil, err
 	}
-	return session
+	return session, nil
 }
 
-func MongoSimpleConnect(url string) *mgo.Session {
+func MongoSimpleConnect(url string) (*mgo.Session, error)  {
 
 	log.Info("connecting to database")
 	c, err := mgo.Dial(url)
 	if err != nil {
-		log.WithField("error", err.Error()).Fatal("Unable to connect to mongo database")
+		log.WithField("error", err.Error()).Warn("Unable to connect to mongo database")
+		return nil, err
 	}
-	return c
+	return c, nil
 }

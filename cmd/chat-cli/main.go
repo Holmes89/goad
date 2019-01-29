@@ -12,7 +12,7 @@ import (
 )
 
 func main() {
-	conn, _ := grpc.Dial(":8080", grpc.WithInsecure())
+	conn, _ := grpc.Dial("ec2-52-15-209-9.us-east-2.compute.amazonaws.com:8080", grpc.WithInsecure())
 	defer conn.Close()
 	client := message.NewMessengerClient(conn)
 
